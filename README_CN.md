@@ -1,9 +1,3 @@
-**GitHub Description (optional)**  
-> **AI‑Driven Nasdaq100 & Bitcoin Trading System**  
-> A full‑stack Python framework for end‑to‑end data ingestion, factor engineering, ML/RL modeling, backtesting, live signal generation and notification—built for research, demo and production.  
-
----
-
 # 🏷️ nasdaq‑ai‑trader
 
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)  
@@ -11,22 +5,22 @@
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
 
 > **AI‑Driven Nasdaq100 & BTC Trader**  
-> An end‑to‑end quantitative trading prototype covering:  
-> - **Data**: yfinance & Alpha Vantage raw & incremental download, Parquet/HDF5 storage  
-> - **Factors**: momentum, volatility, fundamental, technical indicators & AlphaLens analysis  
-> - **Models**: RL (PPO, DDPG, SAC, TD3) + ML (LightGBM, XGBoost, Transformer)  
-> - **Backtesting**: trade logic, transaction costs, slippage, performance metrics (annualized return, Sharpe, drawdown)  
-> - **Live Signals**: daily US‑market signals at 14:30 ET, CSV/HTML reports + Email/Slack delivery  
-> - **Scheduling**: APScheduler for daily/weekly/monthly jobs  
+> 一个端到端的量化交易系统原型，涵盖：  
+> - **数据模块**：yfinance / AlphaVantage 原始与增量下载、Parquet/HDF5 存储  
+> - **因子工程**：动量、波动率、基本面、技术指标、AlphaLens 分析  
+> - **模型**：强化学习 (PPO, DDPG, SAC, TD3) + 传统 ML (LightGBM, XGBoost, Transformer)  
+> - **回测引擎**：交易逻辑、成本、滑点、绩效指标（年化、Sharpe、回撤）  
+> - **实盘信号**：每日美东 14:30 生成 CSV/HTML 报告，并通过 Email/Slack 推送  
+> - **调度**：APScheduler 支持日/周/月任务  
 
 ---
 
-## 📸 System Architecture
+## 📸 系统架构概览
 
-![System Architecture](https://raw.githubusercontent.com/yourname/nasdaq-ai-trader/main/docs/architecture.png)
+![系统架构示意图](https://raw.githubusercontent.com/yourname/nasdaq-ai-trader/main/docs/architecture.png)
 
 <details>
-<summary>Click to expand folder structure</summary>
+<summary>点击查看目录结构</summary>
 
 ```
 nasdaq-ai-trader/
@@ -85,23 +79,23 @@ nasdaq-ai-trader/
 
 ---
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-1. **Clone the repo**  
+1. **克隆仓库**  
    ```bash
    git clone https://github.com/yourname/nasdaq-ai-trader.git
    cd nasdaq-ai-trader
    ```
 
-2. **Set up virtual environment & install dependencies**  
+2. **创建虚拟环境 & 安装依赖**  
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
    ```
 
-3. **Configure API keys**  
-   Edit `config/env.yaml`:
+3. **配置 API Keys**  
+   编辑 `config/env.yaml`：
    ```yaml
    ALPHA_VANTAGE_API_KEY: "your_alpha_vantage_key"
    EMAIL_SMTP_SERVER: "smtp.example.com"
@@ -110,38 +104,38 @@ nasdaq-ai-trader/
    SLACK_WEBHOOK_URL: "https://hooks.slack.com/..."
    ```
 
-4. **Download historical data**  
+4. **下载历史数据**  
    ```bash
    python data/download.py --start 2015-01-01 --end 2025-01-01
    ```
 
-5. **Run backtest**  
+5. **运行回测**  
    ```bash
    python scripts/run_backtest.py --start 2020-01-01 --end 2024-12-31
    ```
-   ![Backtest Example](https://raw.githubusercontent.com/yourname/nasdaq-ai-trader/main/docs/backtest_example.png)
+   ![Backtest Result](https://raw.githubusercontent.com/yourname/nasdaq-ai-trader/main/docs/backtest_example.png)
 
-6. **Generate daily signals**  
+6. **生成每日信号**  
    ```bash
    python scripts/daily_prediction.py
    ```
 
 ---
 
-## 📚 Core Modules
+## 📚 核心模块说明
 
-| Module         | Purpose                                                       |
-| -------------- | ------------------------------------------------------------- |
-| **data/**      | Data ingestion, incremental updates, Parquet/HDF5 storage     |
-| **features/**  | Momentum/volatility/fundamental factors, technical indicators |
-| **models/**    | RL (PPO/DDPG/SAC/TD3), ML (LightGBM/XGBoost/Transformer)      |
-| **backtest/**  | Backtesting engine, strategies, performance metrics, reports  |
-| **trading/**   | Signal generation, rebalancing, Email/Slack notification      |
-| **scripts/**   | One‑click training/backtest/signal & job scheduling           |
+| 模块          | 功能                                                         |
+|---------------|--------------------------------------------------------------|
+| **data/**     | 数据下载、增量更新、Parquet/HDF5 存储                         |
+| **features/** | 动量/波动率/基本面因子、技术指标、AlphaLens 分析             |
+| **models/**   | RL (PPO/DDPG/SAC/TD3)、ML (LightGBM/XGBoost/Transformer)     |
+| **backtest/** | 回测引擎、策略、绩效指标、报告                                 |
+| **trading/**  | 信号生成、再平衡、Email/Slack 推送                           |
+| **scripts/**  | 一键训练/回测/信号、任务调度                                  |
 
 ---
 
-## 🔧 Configuration (`config/default.yaml`)
+## 🔧 配置项（`config/default.yaml`）
 
 ```yaml
 data:
@@ -170,23 +164,23 @@ models:
 
 ---
 
-## 📈 Sample Outputs
+## 📈 示例结果
 
-- **AlphaLens Factor Analysis**  
-  ![AlphaLens Analysis](https://raw.githubusercontent.com/yourname/nasdaq-ai-trader/main/docs/alphalens_factors.png)
+- **因子分析可视化**  
+  ![AlphaLens 因子分析](https://raw.githubusercontent.com/yourname/nasdaq-ai-trader/main/docs/alphalens_factors.png)
 
-- **Signal Heatmap**  
+- **信号热力图**  
   ![Signal Heatmap](https://raw.githubusercontent.com/yourname/nasdaq-ai-trader/main/docs/signal_heatmap.png)
 
 ---
 
-## 📜 License
+## 📜 许可证
 
-This project is released under the MIT License. See [LICENSE](LICENSE) for details.
+本项目基于 MIT 许可证开源，详情见 [LICENSE](LICENSE)。
 
 ---
 
-## 🤝 Acknowledgments
+## 🤝 致谢
 
 - [yfinance](https://github.com/ranaroussi/yfinance)  
 - [Alpha Vantage](https://www.alphavantage.co/)  
@@ -196,5 +190,5 @@ This project is released under the MIT License. See [LICENSE](LICENSE) for detai
 
 ---
 
-> Questions, feedback or contributions are welcome—feel free to open an issue or pull request!  
-> Happy trading! 🚀
+> 如果你有任何问题或建议，欢迎提交 Issue 或 Pull Request！  
+> Happy Trading! 🚀
