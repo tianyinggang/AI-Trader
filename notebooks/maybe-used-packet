@@ -1,0 +1,35 @@
+# Data manipulation and analysis
+pandas
+numpy
+
+# Data visualization
+matplotlib
+seaborn
+plotly  # Interactive visualizations
+
+# Machine learning
+scikit-learn
+xgboost  # Gradient boosting framework
+lightgbm  # Light Gradient Boosting Machine
+catboost  # Categorical boosting
+
+# Deep learning
+tensorflow
+keras
+torch  # PyTorch
+
+# Time series analysis
+statsmodels
+pmdarima  # Auto-ARIMA for time series forecasting
+prophet  # Facebook's forecasting library
+
+# Financial data handling
+yfinance  # Yahoo Finance API
+pandas-datareader  # Data reader for financial data
+ccxt  # Cryptocurrency trading library
+
+# Performance optimization
+numba  # JIT compiler for numerical functions
+
+# Miscellaneous
+tqdm  # Progress bar
