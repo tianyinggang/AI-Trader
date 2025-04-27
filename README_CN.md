@@ -173,6 +173,10 @@ models:
   ![Signal Heatmap](https://raw.githubusercontent.com/yourname/nasdaq-ai-trader/main/docs/signal_heatmap.png)
 
 ---
+## TODO
+- [ ] 划分 Train/Val/Test (如 70%/15%/15%): 
+- [ ] Task 2
+- [ ] Task 3
 
 ## 📜 许可证
 
