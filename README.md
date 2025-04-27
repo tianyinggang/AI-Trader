@@ -198,3 +198,36 @@ This project is released under the MIT License. See [LICENSE](LICENSE) for detai
 
 > Questions, feedback or contributions are welcome—feel free to open an issue or pull request!  
 > Happy trading! 🚀
+
+
+
+ensor([[[0.0504],
+         [0.0508],
+         [0.0487],
+         ...,
+         [0.0479],
+         [0.0497],
+         [0.0538]],
+
+        [[0.0508],
+         [0.0487],
+         [0.0511],
+         ...,
+         [0.0497],
+         [0.0538],
+         [0.0561]],
+
+        [[0.0487],
+         [0.0511],
+         [0.0518],
+         ...,
+         [0.0538],
+         [0.0561],
+         [0.0573]],
+
+        ...,
+...
+    lr: 0.001
+    maximize: False
+    weight_decay: 0
+) MSELoss()
