@@ -4,7 +4,7 @@ import torch.optim as optim
 import numpy as np
 
 class TimeSeriesTransformer(nn.Module):
-    """基于Transformer的时间序列预测模型"""
+    """Transformer-based time series forecasting model with enhanced architecture"""
     def __init__(self, feature_dim, seq_len, num_heads=4, hidden_dim=128, num_layers=2, dropout=0.1):
         super(TimeSeriesTransformer, self).__init__()
         self.feature_dim = feature_dim
@@ -13,39 +13,53 @@ class TimeSeriesTransformer(nn.Module):
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         
-        # 增加位置编码以帮助模型理解序列中不同位置的关系
-        self.positional_encoding = self._create_positional_encoding(seq_len, feature_dim)
+        # Positional encoding to help model understand sequence positions
+        self.positional_encoding = self._create_positional_encoding(seq_len, hidden_dim)
         
-        # 添加输入投影层，将feature_dim映射到更高维度，增强表达能力
+        # Input projection layer: map feature_dim to hidden_dim
         self.input_projection = nn.Linear(feature_dim, hidden_dim)
         
-        # 更新Transformer编码器配置
-        self.encoder_layer = nn.TransformerEncoderLayer(
-            d_model=hidden_dim,  # 使用hidden_dim而不是feature_dim
+        # Layer normalization before transformer for training stability
+        self.pre_norm = nn.LayerNorm(hidden_dim)
+        
+        # Transformer encoder configuration
+        encoder_layers = nn.TransformerEncoderLayer(
+            d_model=hidden_dim,
             nhead=num_heads,
-            dim_feedforward=hidden_dim * 4,  # 扩大feedforward层
-            dropout=dropout,     # 添加dropout防止过拟合
-            batch_first=True     # 设置batch_first更符合习惯
+            dim_feedforward=hidden_dim * 4,  # Standard practice is 4x hidden_dim
+            dropout=dropout,
+            batch_first=True,
+            activation="gelu"  # GELU often performs better than ReLU for transformers
         )
         self.transformer_encoder = nn.TransformerEncoder(
-            self.encoder_layer,
-            num_layers=num_layers
+            encoder_layers,
+            num_layers=num_layers,
+            norm=nn.LayerNorm(hidden_dim)  # Final layer normalization
         )
         
-        # 使用注意力机制聚合序列信息而不是简单展平
-        self.attention = nn.Linear(hidden_dim, 1)
+        # Attention mechanism for sequence aggregation
+        self.attention = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.Tanh(),
+            nn.Linear(hidden_dim // 2, 1)
+        )
         
-        # 更复杂的输出层
-        self.fc1 = nn.Linear(hidden_dim, hidden_dim // 2)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(dropout)
-        self.fc2 = nn.Linear(hidden_dim // 2, 1)
+        # Output network with residual connection
+        self.output_net = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim // 2, hidden_dim // 4),
+            nn.GELU(),
+            nn.Dropout(dropout * 0.5),  # Reduce dropout in deeper layers
+            nn.Linear(hidden_dim // 4, 1)
+        )
         
-        # 初始化参数
+        # Initialize parameters
         self._init_weights()
     
     def _create_positional_encoding(self, seq_len, d_model):
-        # 创建位置编码
+        """Create sinusoidal positional encodings"""
         pe = torch.zeros(seq_len, d_model)
         position = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model))
@@ -56,162 +70,221 @@ class TimeSeriesTransformer(nn.Module):
         else:
             pe[:, 1::2] = torch.cos(position * div_term)
             
-        # 注册为缓冲区，不参与梯度更新
+        # Register as buffer (not part of gradient updates)
         return nn.Parameter(pe, requires_grad=False)
     
     def _init_weights(self):
-        # 初始化参数，提高收敛速度和性能
-        for p in self.parameters():
+        """Initialize model weights for better convergence"""
+        for name, p in self.named_parameters():
             if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
+                if 'projection' in name:
+                    # Projection layers initialized with smaller values
+                    nn.init.normal_(p, mean=0.0, std=0.02)
+                else:
+                    # Other layers with Xavier initialization
+                    nn.init.xavier_uniform_(p)
+            elif 'bias' in name:
+                nn.init.zeros_(p)
     
-    def forward(self, x):
-        # 输入形状: [batch_size, seq_len, feature_dim]
+    def forward(self, x, return_attention=False):
+        """
+        Forward pass through the model.
+
+        Args:
+            x: Input tensor of shape [batch_size, seq_len, feature_dim].
+            return_attention (bool): Whether to return attention weights.
+
+        Returns:
+            Predicted values tensor of shape [batch_size, 1].
+            (Optional) Attention weights.
+        """
         batch_size = x.size(0)
         
-        # 确保输入数据形状正确
-        if x.dim() == 2:
-            x = x.view(batch_size, self.seq_len, self.feature_dim)
-        
-        # 添加位置编码
-        pos_enc = self.positional_encoding.unsqueeze(0).expand(batch_size, -1, -1)
-        if x.size(-1) == self.positional_encoding.size(-1):
-            x = x + pos_enc.to(x.device)
-        
-        # 投影到更高维度
+        # Project input to hidden dimension
         x = self.input_projection(x)
         
-        # 应用Transformer编码器
+        # Add positional encoding
+        pos_enc = self.positional_encoding.unsqueeze(0).expand(batch_size, -1, -1).to(x.device)
+        x = x + pos_enc
+        
+        # Apply pre-normalization
+        x = self.pre_norm(x)
+        
+        # Apply transformer encoder
         x = self.transformer_encoder(x)
         
-        # 使用注意力机制聚合序列信息
+        # Apply attention mechanism for sequence aggregation
         attn_weights = torch.softmax(self.attention(x), dim=1)
-        x = torch.sum(x * attn_weights, dim=1)
+        context = torch.sum(x * attn_weights, dim=1)
         
-        # 应用输出层
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.fc2(x)
+        # Generate prediction through output network
+        output = self.output_net(context)
         
-        return x
+        if return_attention:
+            return output, attn_weights
+        return output
     
     def train_epoch(self, X_train, y_train, optimizer, batch_size=32):
-        """训练一个epoch"""
-        self.train()  # 设置为训练模式
+        """Train model for one epoch with improved stability
+        
+        Args:
+            X_train: Training inputs
+            y_train: Training targets
+            optimizer: PyTorch optimizer
+            batch_size: Batch size for training
+            
+        Returns:
+            avg_loss: Average loss for the epoch
+            accuracy: Direction prediction accuracy
+        """
+        self.train()  # Set to training mode
         total_loss = 0.0
         correct_preds = 0
+        total_samples = 0
         
-        # 将numpy数组转换为torch张量(如果需要)
-        if isinstance(X_train, np.ndarray):
-            X_train = torch.tensor(X_train, dtype=torch.float32)
-        if isinstance(y_train, np.ndarray):
-            y_train = torch.tensor(y_train, dtype=torch.float32)
+        # Ensure input data is tensor
+        X_train = self._ensure_tensor(X_train)
+        y_train = self._ensure_tensor(y_train)
         
-        # 创建数据加载器以处理批量
+        # Create data loader for batching
         indices = torch.randperm(len(X_train))
         num_batches = (len(X_train) + batch_size - 1) // batch_size
         
         criterion = nn.MSELoss()
         
         for i in range(num_batches):
-            # 获取批次数据
+            # Get batch data
             start_idx = i * batch_size
             end_idx = min((i + 1) * batch_size, len(X_train))
             batch_indices = indices[start_idx:end_idx]
             
-            batch_X = X_train[batch_indices]
-            batch_y = y_train[batch_indices].view(-1, 1)
+            batch_X = X_train[batch_indices].to(self._get_device())
+            batch_y = y_train[batch_indices].view(-1, 1).to(self._get_device())
             
-            # 清空梯度
-            optimizer.zero_grad()
-            
-            # 前向传播
+            # Forward pass
             outputs = self(batch_X)
             
-            # 计算损失
+            # Calculate loss
             loss = criterion(outputs, batch_y)
             
-            # 反向传播
+            # Backward pass with gradient clipping
+            optimizer.zero_grad()
             loss.backward()
-            
-            # 梯度裁剪以防止梯度爆炸
             torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
-            
-            # 更新权重
             optimizer.step()
             
-            # 累计损失
-            total_loss += loss.item() * len(batch_indices)
-            
-            # 计算方向准确率
+            # Accumulate statistics
+            batch_size_actual = batch_y.size(0)
+            total_loss += loss.item() * batch_size_actual
             correct_preds += torch.sum((torch.sign(outputs) == torch.sign(batch_y)).float()).item()
+            total_samples += batch_size_actual
         
-        # 计算平均损失和准确率
-        avg_loss = total_loss / len(X_train)
-        accuracy = correct_preds / len(X_train)
+        # Calculate average metrics
+        avg_loss = total_loss / total_samples
+        accuracy = correct_preds / total_samples
         
         return avg_loss, accuracy
     
     def validate(self, X_val, y_val, batch_size=32):
-        """在验证集上验证模型"""
-        self.eval()  # 设置为评估模式
+        """Validate model on validation set
+        
+        Args:
+            X_val: Validation inputs
+            y_val: Validation targets
+            batch_size: Batch size for validation
+            
+        Returns:
+            avg_loss: Average validation loss
+            accuracy: Direction prediction accuracy
+        """
+        self.eval()  # Set to evaluation mode
         total_loss = 0.0
         correct_preds = 0
+        total_samples = 0
         
-        # 将numpy数组转换为torch张量(如果需要)
-        if isinstance(X_val, np.ndarray):
-            X_val = torch.tensor(X_val, dtype=torch.float32)
-        if isinstance(y_val, np.ndarray):
-            y_val = torch.tensor(y_val, dtype=torch.float32)
+        # Ensure input data is tensor
+        X_val = self._ensure_tensor(X_val)
+        y_val = self._ensure_tensor(y_val)
         
-        # 创建数据加载器以处理批量
+        # Create data loader for batching
         num_batches = (len(X_val) + batch_size - 1) // batch_size
         
         criterion = nn.MSELoss()
         
         with torch.no_grad():
             for i in range(num_batches):
-                # 获取批次数据
+                # Get batch data
                 start_idx = i * batch_size
                 end_idx = min((i + 1) * batch_size, len(X_val))
                 
-                batch_X = X_val[start_idx:end_idx]
-                batch_y = y_val[start_idx:end_idx].view(-1, 1)
+                batch_X = X_val[start_idx:end_idx].to(self._get_device())
+                batch_y = y_val[start_idx:end_idx].view(-1, 1).to(self._get_device())
                 
-                # 前向传播
+                # Forward pass
                 outputs = self(batch_X)
                 
-                # 计算损失
+                # Calculate loss
                 loss = criterion(outputs, batch_y)
                 
-                # 累计损失
-                total_loss += loss.item() * (end_idx - start_idx)
-                
-                # 计算方向准确率
+                # Accumulate statistics
+                batch_size_actual = batch_y.size(0)
+                total_loss += loss.item() * batch_size_actual
                 correct_preds += torch.sum((torch.sign(outputs) == torch.sign(batch_y)).float()).item()
+                total_samples += batch_size_actual
         
-        # 计算平均损失和准确率
-        avg_loss = total_loss / len(X_val)
-        accuracy = correct_preds / len(X_val)
+        # Calculate average metrics
+        avg_loss = total_loss / total_samples
+        accuracy = correct_preds / total_samples
         
         return avg_loss, accuracy
     
-    def predict(self, X_test):
-        """预测函数"""
-        self.eval()  # 设置为评估模式
+    def predict(self, X_test, batch_size=64):
+        """Generate predictions for test data
         
-        # 将numpy数组转换为torch张量(如果需要)
-        if isinstance(X_test, np.ndarray):
-            X_test = torch.tensor(X_test, dtype=torch.float32)
+        Args:
+            X_test: Test inputs
+            batch_size: Batch size for prediction
+            
+        Returns:
+            predictions: NumPy array of predictions
+        """
+        self.eval()  # Set to evaluation mode
+        
+        # Ensure input data is tensor
+        X_test = self._ensure_tensor(X_test)
+        
+        # Create batches for memory efficiency
+        num_samples = len(X_test)
+        num_batches = (num_samples + batch_size - 1) // batch_size
+        predictions = []
         
         with torch.no_grad():
-            outputs = self(X_test)
-            
-        # 转换回numpy数组
-        if isinstance(outputs, torch.Tensor):
-            predictions = outputs.cpu().numpy().flatten()
+            for i in range(num_batches):
+                # Get batch data
+                start_idx = i * batch_size
+                end_idx = min((i + 1) * batch_size, num_samples)
+                
+                batch_X = X_test[start_idx:end_idx].to(self._get_device())
+                
+                # Generate predictions
+                batch_preds = self(batch_X)
+                
+                # Collect batch predictions
+                predictions.append(batch_preds.cpu().numpy())
+        
+        # Concatenate all batch predictions
+        all_predictions = np.vstack(predictions).flatten()
+        return all_predictions
+    
+    def _ensure_tensor(self, data):
+        """Ensure data is a PyTorch tensor"""
+        if isinstance(data, np.ndarray):
+            return torch.from_numpy(data).float()
+        elif isinstance(data, torch.Tensor):
+            return data.float()  # Ensure float type
         else:
-            predictions = outputs
-            
-        return predictions
+            raise TypeError(f"Unsupported data type: {type(data)}")
+    
+    def _get_device(self):
+        """Get the device the model is on"""
+        return next(self.parameters()).device
